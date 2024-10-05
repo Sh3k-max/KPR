@@ -1,0 +1,100 @@
+import ollama
+import numpy as np
+import joblib  # Importing joblib to load your model
+import sys
+
+# ==========================
+# Load Your Emotion Identification Model
+# ==========================
+# Load the emotion detection model
+model = joblib.load('model.joblib')
+
+def identify_emotion(text):
+    """
+    Analyzes the input text and returns the detected emotion using the loaded model.
+    """
+    # Assuming your model takes a list of texts as input and returns predictions
+    predictions = model.predict([text])  # Change this if necessary to match your model's expected input
+
+    # If your model returns the labels directly, you can return it like this:
+    if isinstance(predictions[0], str):
+        return predictions[0]  # If the model returns the label directly
+
+    # If it returns indices, make sure to convert them to int
+    emotions = ['happy', 'sad', 'angry', 'neutral']  # Map of emotions based on your model's output
+
+    # Assuming predictions is an array of indices, convert to int
+    index = int(predictions[0])  # Ensure this is converted to an integer
+    return emotions[index]  # Return the emotion corresponding to the index
+
+# ==========================
+# Chatbot Implementation
+# ==========================
+
+def get_emotion_aware_prompt(user_input, emotion):
+    """
+    Constructs a prompt for the Ollama language model based on the detected emotion.
+    """
+    emotion_context = {
+        'happy': "The user is feeling happy and satisfied.",
+        'sad': "The user is feeling sad and might need encouragement.",
+        'angry': "The user is feeling angry and needs a calm and empathetic response.",
+        'neutral': "The user has a neutral tone."
+    }
+
+    context = emotion_context.get(emotion, "The user is expressing their feelings.")
+
+    prompt = (
+        f"You are an empathetic customer service chatbot. {context} "
+        f"Respond appropriately to assist them.\n\n"
+        f"User: {user_input}\n"
+        f"Chatbot:"
+    )
+    return prompt
+
+def get_response_from_ollama(prompt):
+    """
+    Sends the prompt to Ollama and retrieves the generated response.
+    """
+    try:
+        response = ollama.generate(prompt=prompt,model="llama3.1")
+        return response['response']
+    except Exception as e:
+        print(f"Error generating response from Ollama: {e}", file=sys.stderr)
+        return "I'm sorry, I'm having trouble processing your request right now."
+
+def run_chatbot():
+    ollama.pull("llama3.1")
+    """
+    Runs the emotion-aware customer service chatbot in the command-line interface.
+    """
+    print("============================================")
+    print("  Emotion-Aware Customer Service Chatbot")
+    print("============================================")
+    print("Type 'exit' or 'quit' to end the conversation.\n")
+
+    while True:
+        user_input = input("You: ").strip()
+        if user_input.lower() in ['exit', 'quit']:
+            print("Chatbot: Thank you for reaching out. Have a great day!")
+            break
+
+        # Step 1: Identify Emotion
+        emotion = identify_emotion(user_input)
+        print(f"(Debug) Detected Emotion: {emotion}")
+
+        # Step 2: Generate Emotion-Aware Prompt
+        prompt = get_emotion_aware_prompt(user_input, emotion)
+
+        # Step 3: Get Response from Ollama
+        chatbot_response = get_response_from_ollama(prompt)
+
+        # Step 4: Respond to User
+        print(f"Chatbot: {chatbot_response}\n")
+
+# ==========================
+# Entry Point
+# ==========================
+
+if __name__ == "__main__":
+    run_chatbot()
